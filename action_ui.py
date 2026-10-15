@@ -92,8 +92,10 @@ def render(equipment,perf,plant,cfg):
         detail=events if row is None else events.loc[events.signal.eq(row.signal)&events.category.eq(row.category)&events.rule.eq(row.rule)&events.date.between(row.start,row.end)]
         st.dataframe(detail,hide_index=True,width='stretch')
     st.divider()
-    st.subheader('Is energy intensity still high at similar production?')
-    st.write('Each day is compared with earlier days producing within ±20% of its product volume, looking back up to 60 days. At least five comparable days are required. This controls for production level only; running, cleaning and standby modes remain unconfirmed.')
+    st.subheader('Energy Efficiency')
+    st.caption('Electricity used per m³ of treated water, compared with days of similar production.')
+    with st.expander('Method details'):
+        st.write('Each day is compared with the previous 60 days, using days with production within ±20%. At least five comparable days are required. Operating hours, cleaning status and feed conditions are not accounted for.')
     st.dataframe(comparison[['date','production_m3','sec','peer_count','peer_median_sec','change_pct','status']],hide_index=True,width='stretch')
     st.plotly_chart(px.line(comparison,x='date',y=['sec','peer_median_sec'],labels={'value':'kWh/m³','variable':'Series'},title='Observed SEC and prior similar-production median'),width='stretch')
     st.caption('A missing reference line means insufficient comparison data. No high matched-output flag does not prove efficient operation.')

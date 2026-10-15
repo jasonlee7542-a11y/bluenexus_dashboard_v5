@@ -75,19 +75,6 @@ def render(equipment,perf,plant,cfg):
     st.plotly_chart(px.line(comparison,x='date',y=['sec','peer_median_sec'],labels={'value':'kWh/m³','variable':'Series'},title='Observed SEC and prior similar-production median'),width='stretch')
     st.caption('A missing reference line means insufficient comparison data. No high matched-output flag does not prove efficient operation.')
     st.divider()
-    st.subheader('Presentation case studies')
-    cases=case_studies(events,incidents,comparison)
-    notes=[f'# {plant}: evidence-based operating review', 'Historical assessment; no verified equipment-failure labels.']
-    for case in cases:
-        with st.container(border=True):
-            st.markdown('### '+case['title'])
-            st.caption(f"{case['start']:%d %b %Y} to {case['end']:%d %b %Y} | {case['signal']}")
-            for key,label in [('finding','Evidence'),('interpretation','What we can conclude'),('action','Remote check'),('onsite','On-site escalation'),('limit','What remains uncertain')]:
-                st.write(f"**{label}:** {case[key]}")
-        notes.extend(['\n## '+case['title'],f"Dates: {case['start']:%Y-%m-%d} to {case['end']:%Y-%m-%d}; signal: {case['signal']}"]+[f"{key}: {case[key]}" for key in ['finding','interpretation','action','onsite','limit']])
-    if len(cases)<3: st.info('Fewer than three distinct supported cases are available for these inputs; additional cases are not invented.')
-    st.download_button('Download presentation case notes', '\n\n'.join(notes),file_name=f'{plant.replace(" ","_")}_case_studies.md')
-    st.download_button('Download grouped incidents',incidents.to_csv(index=False).encode(),file_name='grouped_incidents.csv',mime='text/csv')
     st.download_button('Download similar-production evidence',comparison.to_csv(index=False).encode(),file_name='production_comparison.csv',mime='text/csv')
     with st.expander('Coverage: what could and could not be assessed'):
         st.dataframe(coverage,hide_index=True,width='stretch')

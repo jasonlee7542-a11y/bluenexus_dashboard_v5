@@ -104,8 +104,7 @@ with tabs[1]:
         lookup=ranking.set_index('signal')
         def option_label(tag):
             r=lookup.loc[tag]
-            rate=f'{r.flag_rate_pct:.1f}% of {r.scored_days} scored days' if r.scored_days else 'not scored'
-            return f'#{r["rank"]} · {r["name"]} · {r.flagged_days} flags · {rate} | {tag}'
+            return f'{int(r["rank"]):02d}  ·  {r["name"]}'
         # Reset to the newly highest-ranked signal when data/settings change, while
         # preserving a manual choice on unrelated widget reruns.
         digest=hashlib.sha256(pd.util.hash_pandas_object(equipment[['date']+eligible],index=True).values.tobytes()).hexdigest()
@@ -114,9 +113,26 @@ with tabs[1]:
         if st.session_state.get(f'ranking_signature_{plant}')!=signature:
             st.session_state[selection_key]=ranking.signal.iloc[0]
             st.session_state[f'ranking_signature_{plant}']=signature
+        st.markdown('#### Signal ranking')
+        show_all=st.checkbox('Show all ranked signals',key=f'full_ranking_{plant}')
+        display=ranking if show_all else ranking.head(10)
+        st.dataframe(display[['rank','name','flagged_days','flag_rate_pct','scored_days','unscored_days']],
+            hide_index=True,width='stretch',height='content',
+            column_config={
+                'rank':st.column_config.NumberColumn('Rank',format='%d',width='small'),
+                'name':st.column_config.TextColumn('Equipment · Measurement',width='large'),
+                'flagged_days':st.column_config.NumberColumn('Flagged days',format='%d',width='small'),
+                'flag_rate_pct':st.column_config.NumberColumn('Flag rate',format='%.1f%%',width='small'),
+                'scored_days':st.column_config.NumberColumn('Scored days',format='%d',width='small'),
+                'unscored_days':st.column_config.NumberColumn('Unscored days',format='%d',width='small')})
+        st.caption('Sorted by flagged days. Flag rate = flagged days ÷ scored days. Blank rate means no scored days. Names are provisional.')
         target=st.selectbox('Signals ranked by flagged-day count',ranking.signal.tolist(),format_func=option_label,key=selection_key)
-        with st.expander('View the complete automatic ranking'):
-            st.dataframe(ranking,hide_index=True,width='stretch')
+        with st.expander('Selected signal details and ranking export'):
+            st.caption('Original PLC tag')
+            st.code(target,language=None)
+            selected_info=lookup.loc[target]
+            st.write(f'Above band: {selected_info.upward_flags} days · Below band: {selected_info.downward_flags} days')
+            st.write('Latest statistical flag: '+(selected_info.last_flag.strftime('%d %b %Y') if pd.notna(selected_info.last_flag) else 'None in selected period'))
             st.download_button('Download signal ranking',ranking.to_csv(index=False).encode(),file_name=f'{plant.replace(" ","_")}_signal_ranking.csv',mime='text/csv')
         result=screened[target]
         r=lookup.loc[target]
@@ -127,11 +143,11 @@ with tabs[1]:
         else:
             st.warning('This signal could not be statistically assessed in this period. It must not be treated as healthy.')
         scored=result.status.isin(['Within statistical band','Statistical deviation'])
-        a,b,c=st.columns(3);a.metric('Scored days',int(scored.sum()));b.metric('Flagged days',int(result.flag.sum()));c.metric('Unscored days',int((~scored).sum()))
+        a,b,c,d=st.columns(4);a.metric('Flagged days',int(result.flag.sum()));b.metric('Flag rate',f'{r.flag_rate_pct:.1f}%' if r.scored_days else 'Unscored');c.metric('Scored days',int(scored.sum()));d.metric('Unscored days',int((~scored).sum()))
         fig=go.Figure()
         fig.add_trace(go.Scatter(x=result.date,y=result.lower_fence,name='Lower statistical fence',line_color='#b6d8df',connectgaps=False))
         fig.add_trace(go.Scatter(x=result.date,y=result.upper_fence,name='Upper statistical fence',fill='tonexty',fillcolor='rgba(23,127,131,.12)',line_color='#b6d8df',connectgaps=False))
-        fig.add_trace(go.Scatter(x=result.date,y=result.value,name=target,line_color='#177f83',connectgaps=False))
+        fig.add_trace(go.Scatter(x=result.date,y=result.value,name=lookup.loc[target,'name'],line_color='#177f83',connectgaps=False))
         f=result.loc[result.flag];fig.add_trace(go.Scatter(x=f.date,y=f.value,mode='markers',name='Statistical deviation',marker=dict(color='#d65c40',size=9)))
         fig.update_layout(title='Historical deviations from the chosen reference');chart(fig)
         if not f.empty:

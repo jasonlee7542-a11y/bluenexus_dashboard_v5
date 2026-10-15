@@ -41,27 +41,24 @@ def render(equipment,perf,plant,cfg):
     if view.empty:st.info('No events match this view. Check channel coverage and the equipment trends before drawing a conclusion.')
     else:
         st.markdown('#### Select an incident to investigate')
-        st.info('👆 Select a row using the checkbox at its left to open the incident report below. Select another row to switch reports.')
-        table=view[['start','end','flagged_days','priority','category','asset','title','min_value','max_value','unit']].reset_index(drop=True)
+        st.info('Select the circle beside an incident to open its report below. Only one incident can be selected at a time.')
         # A new dataset/filter/settings view must not reuse an old row position.
         fingerprint=hashlib.sha256(pd.util.hash_pandas_object(view,index=True).values.tobytes()).hexdigest()[:16]
-        selection=st.dataframe(table,hide_index=True,width='stretch',height=350,
-            on_select='rerun',selection_mode='single-row',key=f'incident_table_{plant}_{fingerprint}',
-            column_config={
-                'start':st.column_config.DateColumn('First flagged',format='DD MMM YYYY'),
-                'end':st.column_config.DateColumn('Last flagged',format='DD MMM YYYY'),
-                'flagged_days':st.column_config.NumberColumn('Days',format='%d',width='small'),
-                'priority':st.column_config.TextColumn('Priority',width='small'),
-                'category':'Type','asset':'Equipment',
-                'title':st.column_config.TextColumn('Incident — select row to open report',width='large'),
-                'min_value':st.column_config.NumberColumn('Minimum',format='%.3f'),
-                'max_value':st.column_config.NumberColumn('Maximum',format='%.3f'),
-                'unit':'Unit'})
-        positions=selection.selection.rows
-        if positions and 0 <= positions[0] < len(view):
-            row=view.iloc[positions[0]]
+        selected_position = st.radio(
+            "Select an incident to open its report",
+            options=list(range(len(view))),
+            index=None,
+            format_func=lambda i: (
+                f"{view.iloc[i]['start']:%d %b %Y} · "
+                f"{view.iloc[i]['asset']} · "
+                f"{view.iloc[i]['title']}"
+            ),
+            key=f"incident_radio_{plant}_{fingerprint}",
+        )
+        if selected_position is not None:
+            row = view.iloc[selected_position]
         if row is None:
-            st.caption('No incident selected. Tick a row above to display its evidence, remote checks and on-site escalation guidance here.')
+            st.caption('No incident selected. Select a circle above to display its evidence, remote checks and on-site escalation guidance here.')
         else:
             st.markdown('#### Selected incident report')
             with st.container(border=True):
